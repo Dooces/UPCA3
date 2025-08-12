@@ -1,3 +1,6 @@
+“everything is in W + micro‑edit + hard physics gates” 
+
+
 UPCA — Unified Predictive Cyclic Architecture
 Structural‑Physics Edition (W‑Only, Typed Specialisation)
 
