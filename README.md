@@ -1,3 +1,85 @@
+UPCA — Unified Predictive Cyclic Architecture
+Structural‑Physics Edition (W‑Only, Typed Specialisation)
+
+One substrate, one physics, simple rules, emergent complexity.
+UPCA is a single evolving operator 
+W
+W that is the world‑model. All structure — from millisecond delays to abstract semantic relationships — is encoded as vertices and edges inside 
+W
+W. There are no parallel tables, no shadow memories; timing, sequence, rhythm, and concepts all manifest as walks and modes of a single graph.
+
+Every proposed change to 
+W
+W must prove itself on a fixed set of behavioural probes and pass strict global safety gates before it’s accepted. This keeps growth mechanical and self‑justifying.
+
+Specialisation is not done with separate modules, but emerges as typed subgraphs (semantic, temporal, phase, feature) and long‑range “wires” inside the same operator. These types allow you to monitor and balance use without splitting the underlying model.
+
+🧠 Mental model
+text
+
+Events / probes -->  [    W (graph)    ]  --> predictions / responses
+                          |   |   |
+            temporal ----/    |    \---- semantic
+             phase  -----------|--------------- features
+                               |
+                          safety gates
+                        (edit-as-experiment)
+Nodes: tokens, delay hops, higher‑order contexts, phase anchors, semantic concepts/operators.
+Edges: directed weights linking nodes; can be short‑term temporal, long‑term semantic, or mediated via a “territory” vertex.
+Physics: one state update rule applies to all.
+Probes: fixed impulses/chords that “ring” the network — some temporal, some semantic.
+Edit loop: propose a small change, sandbox it, measure probe impacts, accept/reject, project back to stability.
+🚀 Quickstart conceptual recipe
+Maintain W as a capped‑sparse + low‑rank adjacency over a registry of vertices.
+Inject events as one‑hot or chord vectors 
+u
+t
+u 
+t
+​
+  into the state:
+s
+t
++
+1
+=
+ϕ
+(
+W
+s
+t
++
+u
+t
+)
+s 
+t+1
+​
+ =ϕ(Ws 
+t
+​
+ +u 
+t
+​
+ ).
+Run probes at intervals to monitor temporal and semantic behaviours.
+Propose tiny structural edits (
+Δ
+W
+ΔW) — e.g., a few edges, or add a new delay/concept node.
+Shadow‑rollout all probes with 
+W
++
+Δ
+W
+W+ΔW:
+Compute trajectory MSE vs. baseline.
+Compute discrete KL on monitored nodes.
+Check type‑specific improvements and interference tolerance.
+Accept only if thresholds and budgets pass. Project and re‑cap weights to spectral safety bound.
+Repeat at a slow cadence to let structure consolidate.
+
+
 UPCA — State of Design (W-Only, Structural-Physics Edition)
 0) Purpose and stance
 One substrate: a single evolving operator 
