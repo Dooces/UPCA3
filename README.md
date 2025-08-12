@@ -77,6 +77,384 @@ Resonance-first: periods are detected by Πp(t)\Pi_p(t)Πp​(t) (closed-walk pr
 Chunk-agnostic: whether input is 1-gram/2-gram/triple, the same lag/hazard machinery applies.
 Stability: the KL trust region makes “what-if” deletions mathematically safe; spectral priors prevent 2-cycle swamping and favor prime tones.
 
+
+Unified Scaffold (shared state): holds lag experts 
+𝐴
+(
+ℓ
+)
+A 
+(ℓ)
+ , delay hazards 
+ℎ
+𝑖
+𝑗
+(
+𝑑
+)
+h 
+ij
+​
+ (d)/
+𝑓
+𝑖
+𝑗
+(
+Δ
+)
+f 
+ij
+​
+ (Δ), resonance summaries 
+𝜇
+𝑘
+,
+Π
+𝑝
+μ 
+k
+​
+ ,Π 
+p
+​
+ , Ramanujan windows 
+𝑅
+𝑝
+R 
+p
+​
+ , the macro library (prime-period, phase HMMs), EMAs, and KL trust-region snapshots. It’s the only source of truth each module reads/writes.
+
+ME (Detail Engine): fast, token-time updates.
+Inputs: recent context/lags; active “waiting” pairs.
+Writes: 
+𝐴
+(
+ℓ
+)
+A 
+(ℓ)
+ , hazard params 
+𝜃
+𝑖
+𝑗
+,
+𝑢
+𝑖
+,
+𝑣
+𝑗
+θ 
+ij
+​
+ ,u 
+i
+​
+ ,v 
+j
+​
+ .
+Outputs: 
+𝑝
+ME
+(
+𝑥
+𝑡
+ ⁣
+∣
+ ⁣
+𝐻
+𝑡
+−
+1
+)
+p 
+ME
+​
+ (x 
+t
+​
+ ∣H 
+t−1
+​
+ ), delay pmf 
+𝑓
+𝑖
+𝑗
+(
+Δ
+)
+f 
+ij
+​
+ (Δ), uncertainty.
+Scope: predicts what/when next; does not create structures.
+
+MA (Abstract Engine): medium-tempo structure discovery.
+Inputs: ME’s 
+𝐴
+(
+ℓ
+)
+A 
+(ℓ)
+  (to build 
+𝑊
+𝑡
+W 
+t
+​
+ ), timeline activations.
+Writes: 
+𝜇
+𝑘
+,
+Π
+𝑝
+,
+𝑅
+𝑝
+μ 
+k
+​
+ ,Π 
+p
+​
+ ,R 
+p
+​
+ ; creates/updates cyclic macros (period 
+𝑝
+p, phase 
+𝜙
+ϕ, emissions 
+𝑈
+U).
+Outputs: macro likelihoods 
+𝑝
+𝑚
+(
+𝑥
+𝑡
+ ⁣
+∣
+ ⁣
+𝜙
+)
+p 
+m
+​
+ (x 
+t
+​
+ ∣ϕ), prime evidence.
+Scope: detects/resolves rhythms; no arbitration.
+
+AMC (Arbiter): slow, supervisory control with safety.
+Inputs: surprise/NLL, MA prime evidence, complexity.
+Actions: sets mix 
+𝜆
+𝑡
+λ 
+t
+​
+  (ME↔MA), scales learning by prime gating 
+𝑔
+𝑝
+g 
+p
+​
+ ; spawns/merges/prunes macros under a KL trust-region; accepts/reverts changes.
+Scope: stability, capacity, policy.
+
+Clear interfaces:
+ME→MA: provides 
+𝑊
+𝑡
+W 
+t
+​
+  (from 
+𝐴
+(
+ℓ
+)
+A 
+(ℓ)
+ ) for spectra.
+MA→AMC: prime/period signals and candidate macros.
+AMC→ME/MA: 
+𝜆
+𝑡
+λ 
+t
+​
+ , learning-rate gates, and structural decisions.
+Scaffold enforces versioning and KL-bounded commits.
+
+Phase 0 — Proof-of-Concept “core-5” (get a running loop fast)
+
+src/streamupca/config.py
+
+load_config(path) -> Config
+
+validate(Config) -> None
+
+freeze(Config) -> FrozenConfig (immutable view)
+
+src/streamupca/data/dataloaders.py
+
+stream_events(path, *, namespaces=None, split="train") -> Iterator[Event]
+
+window(buffer, W) -> Context (last W tokens + indices)
+
+batcher(iterable, n) -> Iterator[List[Event]] (optional)
+
+src/streamupca/scaffold/state.py
+
+class ScaffoldState:
+
+from_config(cfg) -> ScaffoldState
+
+get_A(lag:int) -> SparseRowMap / set_A(lag, row, col, val)
+
+ema_update(name:str, value:float, tau:float)
+
+checkpoint(save_path) / restore(load_path)
+
+metrics_snapshot() -> Dict[str, float]
+
+src/streamupca/models/me_lag.py (lag-experts only)
+
+class LagExperts:
+
+predict_proba(ctx:Context) -> Probs
+
+nll(event:Event, ctx:Context) -> float
+
+sgd_update(event, ctx, lr:float)
+
+regularize(l1:float)
+
+export_params() / import_params()
+
+src/streamupca/runners/train_stream.py
+
+train(cfg, events_path) — main loop: read → predict → loss → update → log
+
+evaluate_next_token(cfg, events_path) -> Dict[str, float]
+
+log_step(step, metrics:Dict)
+
+POC exit criteria: can ingest events.csv, learn unigram→lag patterns, and report Next-Token NLL, Acc@1/5, EMAs. Nothing else.
+
+Phase 1 — “Waiting” and timing (semi-Markov hazards)
+6) src/streamupca/models/hazard_semi_markov.py
+
+class HazardModel:
+
+hazard(i,j,d) -> float
+
+survival(i,j,Δ) -> float
+
+pmf(i,j,Δ) -> float
+
+loglik(i,j,Δ) -> float
+
+update(i,j,Δ, lr) (with eligibility traces)
+
+start_trace(i, t) / end_trace(i, t)
+
+Integrations
+
+Runner: add delay-NLL to loss and logging
+
+State: store u_i, v_j, θ_{ij} banks and traces
+
+Phase 2 — Resonance probes (no structure changes yet)
+8) src/streamupca/models/resonance.py
+
+build_W(state, lags:List[int]) -> SparseOp
+
+trace_moments(W, ks:Iterable[int]) -> Dict[k, μ_k]
+
+mobius_invert(mu:Dict[int,float]) -> Dict[k, Π_k]
+
+ramanujan_window(a_t:Sequence[float], q:int, T:int) -> float
+
+update_resonance_cache(state, stats)
+
+src/streamupca/eval/metrics_resonance.py
+
+prime_peaks(Π:Dict) -> List[(p,score)]
+
+timeline_energy(R) -> Dict[p, float]
+
+Milestone: logs show stable μ_k/Π_p and Ramanujan energies alongside accuracy.
+
+Phase 3 — Minimal AMC (safety only, no macros yet)
+10) src/streamupca/scaffold/trust_region.py
+
+snapshot_predictor(state, query_set) -> DistMap
+
+kl_on_queries(pre:DistMap, post:DistMap) -> float
+
+select_query_set(buffer, k:int) -> List[Context]
+
+src/streamupca/amc/controller.py
+
+class AMCController:
+
+choose_lambda(metrics, resonance) -> float
+
+propose_change(state) -> Change (noop initially)
+
+apply_with_kl_guard(state, change, ε) -> bool
+
+Milestone: KL guard wired; dry-runs confirm no catastrophic drops.
+
+Phase 4 — Cyclic macros (prime-period ABS) and mixing
+12) src/streamupca/models/macros.py
+
+class PhaseMacro:
+
+step_phase() / reset_phase()
+
+emission_prob(token) -> float
+
+update_emission(token, lr)
+
+class MacroLibrary:
+
+spawn_from_peak(p:int, seeds:List[token]) -> MacroId
+
+score(token) -> Dict[macro, prob]
+
+merge_or_prune(criteria)
+
+src/streamupca/models/mixer.py
+
+mix_prob(p_me, p_macros, λ) -> Probs
+
+blend_loss(nll_me, nll_macros, λ) -> float
+
+Milestone: macros contribute on periodic streams; AMC adjusts λ.
+
+Tests to create with each phase (tiny, deterministic):
+
+tests/test_me_lag.py: learns a 2-lag toy; Acc@1 improves.
+
+tests/test_hazard.py: known Δ distribution → recoverable loglik.
+
+tests/test_resonance.py: synthetic period-p stream → Π_p peak.
+
+tests/test_trust_region.py: enforced KL bound blocks harmful updates.
+
+tests/test_macros.py: spawn from Π_p peak and improve NLL on-cycle.
+
+Focus summary: build the “core-5” to run a minimal learning loop; add hazards (waiting), then resonance read-outs, then AMC safety, then macros. Each phase is executable and logged before adding the next knob.
+
+
 stream-upca/
 ├── README.md                          # What the project is; quickstart; data format spec
 ├── pyproject.toml                     # Build/deps; pinned versions
