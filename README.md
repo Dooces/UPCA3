@@ -76,3 +76,70 @@ Waiting state: encoded by fij(Δ)f_{ij}(\Delta)fij​(Δ) (semi-Markov); “ligh
 Resonance-first: periods are detected by Πp(t)\Pi_p(t)Πp​(t) (closed-walk primitives) and RpR_pRp​ (Ramanujan timeline projection); macros bind them via phases.
 Chunk-agnostic: whether input is 1-gram/2-gram/triple, the same lag/hazard machinery applies.
 Stability: the KL trust region makes “what-if” deletions mathematically safe; spectral priors prevent 2-cycle swamping and favor prime tones.
+
+stream-upca/
+├── README.md                          # What the project is; quickstart; data format spec
+├── pyproject.toml                     # Build/deps; pinned versions
+├── configs/
+│   ├── default.yaml                   # Main hyperparams (lags, L, hazard bases, KL ε, etc.)
+│   ├── small.yaml                     # Tiny config for CI/tests
+│   ├── ablation_roleless.yaml         # Toggle role features off (for comparisons)
+│   └── resonance_only.yaml            # Disable hazards/macros to isolate resonance
+├── data/
+│   ├── events.csv                     # seq_id,step,token,namespace,weight,split
+│   └── vocab.csv                      # token,id (optional)
+├── scripts/
+│   ├── prepare_data.py                # Convert legacy triples → events.csv
+│   ├── make_toy_sequences.py          # Generate synthetic periodic streams
+│   └── run_experiment.sh              # One-liner wrappers for common runs
+├── src/streamupca/
+│   ├── __init__.py
+│   ├── config.py                      # Load/validate YAML; expose dataclasses
+│   ├── utils/
+│   │   ├── logging.py                 # Structured logs; step-wise metrics emit
+│   │   ├── math_ops.py                # Safe log-sum-exp, Möbius μ(n), Ramanujan sums
+│   │   ├── serialization.py           # Checkpoint I/O (state dicts + config + git hash)
+│   │   └── seed.py                    # Reproducible RNG seeding
+│   ├── data/
+│   │   ├── schema.py                  # Typed record for Event(row); validators
+│   │   ├── dataloaders.py             # Stream iterators; windowing; namespace filters
+│   │   └── streaming_buffer.py        # Ring buffer of recent context; EMA features
+│   ├── scaffold/
+│   │   ├── state.py                   # Online state container (A^(ℓ), hazards, macros, EMAs)
+│   │   ├── traces.py                  # Eligibility traces; hazard-survival bookkeeping
+│   │   ├── trust_region.py            # KL guards; pre/post snapshot & comparison set
+│   │   └── updates.py                 # In-place param updates; normalize/sparsify policies
+│   ├── models/
+│   │   ├── me_lag.py                  # Lag-typed next-token experts A^(ℓ); softmax mixer β_ℓ
+│   │   ├── hazard_semi_markov.py      # Pairwise hazards h_{ij}(d), survival S, delay pmf f
+│   │   ├── resonance.py               # W_t build; trace-moments μ_k; primitive Π_k via Möbius
+│   │   ├── ramanujan.py               # Timeline projections R_q over windows; prime detectors
+│   │   ├── macros.py                  # Prime-period cyclic ABS (phase HMM); emissions U_m
+│   │   └── mixer.py                   # ME–MA mixture p(x_t|H); λ_t blending interface
+│   ├── amc/
+│   │   ├── controller.py              # Chooses λ_t; triggers spawn/merge/prune under KL bound
+│   │   ├── objectives.py              # Surprise, spectral priors, complexity penalties
+│   │   └── structure_ops.py           # Safe structural changes (create macro, adjust bases)
+│   ├── eval/
+│   │   ├── metrics_next_token.py      # Accuracy@k, NLL for next-token prediction
+│   │   ├── metrics_delay.py           # Delay NLL for (i→j,Δ); calibration curves
+│   │   ├── metrics_resonance.py       # Π_p and R_p tracking; prime-peak persistence
+│   │   └── ablations.py               # Roleless vs. role-typed; hazards on/off; macro on/off
+│   ├── vis/
+│   │   ├── plots.py                   # Matplotlib figures for learning curves & spectra
+│   │   └── dashboard.py               # (Optional) lightweight dashboard for live runs
+│   └── runners/
+│       ├── train_stream.py            # Main loop: read events → update ME/MA → AMC ops → log
+│       ├── validate.py                # Offline eval on held-out splits
+│       └── simulate_sequences.py      # Simple generators (e.g., obj1,obj1,obj2 motifs)
+├── tests/
+│   ├── test_hazard.py                 # f_{ij}(Δ) correctness; gradients; corner cases
+│   ├── test_resonance.py              # μ_k/Π_k; Ramanujan R_q on known periodic signals
+│   ├── test_trust_region.py           # KL guard trips/accepts as intended
+│   ├── test_macros.py                 # Phase filtering; emission learning; spawn criteria
+│   └── test_end_to_end.py             # Tiny stream sanity: learns a 2/3-prime motif
+└── notebooks/                         # (Optional) exploratory EDA and ablation reports
+    └── 01_periodicity_probe.ipynb
+
+
+
