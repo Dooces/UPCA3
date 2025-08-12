@@ -1,3 +1,870 @@
+UPCA — State of Design (W-Only, Structural-Physics Edition)
+0) Purpose and stance
+One substrate: a single evolving operator 
+𝑊
+W is the world-model. No shadow tables, no side predictors.
+
+Everything is a walk: timing, sequence, rhythm, semantics, and “macros” are encoded as vertices/edges and manifest via impulse responses and modes.
+
+One control surface: global gain 
+𝑔
+(
+𝑡
+)
+g(t), spectral safety projection, and edit-as-experiment gates. Nothing else.
+
+Typed specialisation without split models: specialisation arises as typed subgraphs (mediated paths) and long-range wiring, not as separate modules.
+
+1) Core state, update, and constraints
+State: 
+𝑠
+𝑡
+∈
+𝑅
+∣
+𝑉
+∣
+s 
+t
+​
+ ∈R 
+∣V∣
+  (activity over vertices).
+
+Update: 
+𝑠
+𝑡
++
+1
+=
+𝜙
+(
+𝑊
+ 
+𝑠
+𝑡
++
+𝑢
+𝑡
+)
+s 
+t+1
+​
+ =ϕ(Ws 
+t
+​
+ +u 
+t
+​
+ ), with 
+𝜙
+=
+ϕ= identity (default) or clipped ReLU if needed for numerical safety.
+
+Input 
+𝑢
+𝑡
+u 
+t
+​
+ : one-hot or small chords (probes/events).
+
+Operator: 
+𝑊
+=
+𝑆
++
+𝑈
+𝑉
+⊤
+W=S+UV 
+⊤
+ ; 
+𝑆
+S row-capped sparse, 
+𝑈
+,
+𝑉
+∈
+𝑅
+∣
+𝑉
+∣
+×
+𝑟
+U,V∈R 
+∣V∣×r
+  low-rank (default 
+𝑟
+=
+8
+r=8).
+
+Signs: off-diagonals 
+≥
+0
+≥0. (Inhibition via row-normalization + diagonal damping.)
+
+Row cap: 
+ℓ
+1
+ℓ 
+1
+​
+  per final row 
+≤
+1
+≤1 after composing 
+𝑆
++
+𝑈
+𝑉
+⊤
+S+UV 
+⊤
+ .
+
+Global budgets: 
+𝑘
+row
+=
+32
+k 
+row
+​
+ =32 (split by type below). 
+∣
+𝐸
+∣
+≤
+20
+∣
+𝑉
+∣
+∣E∣≤20∣V∣.
+
+Spectral safety: spectral radius 
+𝜌
+(
+𝑊
+)
+≤
+𝜌
+\*
+=
+0.98
+ρ(W)≤ρ 
+\*
+ =0.98. After accept, rescale 
+𝑊
+←
+𝑊
+⋅
+𝜌
+\*
+𝜌
+^
++
+10
+−
+3
+W←W⋅ 
+ρ
+^
+​
+ +10 
+−3
+ 
+ρ 
+\*
+ 
+​
+ .
+
+Damping: add diagonal 
+𝐷
+=
+𝛿
+𝐼
+D=δI, 
+𝛿
+=
+0.02
+δ=0.02.
+
+2) Vertex set and typed paths (no extra matrices)
+Token nodes: observed symbols/events.
+
+Delay nodes: 
+Δ
+1
+,
+…
+,
+Δ
+𝐾
+Δ 
+1
+​
+ ,…,Δ 
+K
+​
+  (default 
+𝐾
+=
+8
+K=8); chain 
+Δ
+𝑘
+ ⁣
+→
+ ⁣
+Δ
+𝑘
++
+1
+Δ 
+k
+​
+ →Δ 
+k+1
+​
+ ; token 
+→
+Δ
+1
+→Δ 
+1
+​
+ ; 
+Δ
+𝑘
+ ⁣
+→
+Δ 
+k
+​
+ →token edges implement “emit after 
+𝑘
+k ticks.”
+
+Context nodes: promoted bigram/trigram contexts 
+𝐶
+[
+⋅
+]
+C[⋅] (Phase-2 only; gated).
+
+Phase nodes: 
+Θ
+𝑚
+Θ 
+m
+​
+  (2–3) ring motifs for lightweight periodic binding.
+
+Semantic concept nodes: e.g., Fruit, Red, Company, Edible, Tool… (budgeted pool).
+
+Operator nodes (semantic transforms): e.g., Hypernym, Hyponym, Pluralize, ColorOf, PartOf… (optional, minimal).
+
+Mediator vertices (territories): TEMP, SEM, PHASE, FEAT.
+A typed edge is the 2-hop path x → MED(type) → y. This enables territory-targeted probes/ablations without a second model.
+
+3) Probes (readouts only)
+Probe pool (size 256):
+
+Temporal core (128): single-node impulses; impulse pairs; timing chords through 
+Δ
+Δ chain.
+
+Semantic core (128): concept-chord probes (e.g., {Fruit}, {Fruit+Red}, {Tool+Cut}, {Company+Computer}), operator tests (e.g., 
+𝑥
+ ⁣
+→
+x→Hypernym
+→
+?
+→?).
+
+Shadow rollout horizon: 
+𝑇
+=
+16
+T=16 steps per probe.
+
+Adaptive rotation: run fixed 128 (balanced), plus top-64 by recent information gain, plus 64 least-recently-used.
+
+4) Edit-as-experiment (the only way W changes)
+Proposal 
+Δ
+𝑊
+ΔW:
+(a) add/strengthen ≤12 edges, or
+(b) add one new vertex (delay/context/phase/concept/hub/macro-anchor) with ≤12 incident edges, or
+(c) rank-1 low-rank nudge (
+Δ
+𝑈
+ 
+Δ
+𝑉
+⊤
+ΔUΔV 
+⊤
+ ).
+
+Shadow evaluation (queries only):
+
+Probe-MSE: trajectory MSE vs. pre-edit on all probes.
+
+Probe-KL: KL on a small monitored node set (tokens + all special vertices).
+
+Type-balance: track per-territory improvement 
+𝐽
+𝜏
+J 
+τ
+​
+  (TEMP/SEM/PHASE/FEAT).
+
+Safety: spectral radius after projection, budgets, row caps.
+
+Accept iff (all true):
+
+Probe-MSE ↓ ≥ 5% on ≥ 2/3 probes.
+
+Mean probe-KL ≤ 2×10⁻³.
+
+Spectral/budget invariants hold.
+
+Interference tolerance: semantic edits may not raise temporal-probe MSE >1% on >1/3 temporal probes (and vice-versa).
+
+Cadence: ≤ 1 accepted edit / 500 steps. On reject: halve 
+∥
+Δ
+𝑊
+∥
+∥ΔW∥ and retry ≤2×, else discard.
+
+Post-accept projection: rescale to spectral bound, re-cap rows, enforce off-diagonal nonnegativity.
+
+5) Specialisation without split models
+Dynamic per-row split: keep 
+𝑘
+total
+=
+32
+k 
+total
+​
+ =32. Maintain EMA utilities 
+𝑈
+𝜏
+U 
+τ
+​
+  by type; compute fractions 
+𝑓
+𝜏
+∝
+exp
+⁡
+(
+𝜂
+𝑈
+𝜏
+)
+f 
+τ
+​
+ ∝exp(ηU 
+τ
+​
+ ) (η=5); set integer caps 
+𝑘
+𝜏
+=
+max
+⁡
+(
+4
+,
+⌊
+𝑓
+𝜏
+𝑘
+total
+⌋
+)
+k 
+τ
+​
+ =max(4,⌊f 
+τ
+​
+ k 
+total
+​
+ ⌋). Enforce at prune time only.
+
+Territory fairness rule: if 
+𝐽
+𝜏
+′
+<
+0.6
+⋅
+𝐽
+ˉ
+J 
+τ 
+′
+ 
+​
+ <0.6⋅ 
+J
+ˉ
+  over last N=50 edits, temporarily tighten dominant type’s cap next prune (automatic, rule-based).
+
+6) Resonance and harmonic disambiguation (W-only)
+Cycle operator: non-backtracking 
+𝐵
+(
+𝑊
+)
+B(W) derived on the fly from 
+𝑊
+W.
+
+Hutch++ moments: estimate 
+𝜇
+^
+𝑘
+=
+t
+r
+(
+𝐵
+𝑘
+)
+μ
+^
+​
+  
+k
+​
+ =tr(B 
+k
+ ) with m=8 vectors; cadence 500 steps; 
+𝑘
+∈
+{
+2
+,
+3
+,
+5
+,
+6
+,
+7
+,
+10
+,
+12
+}
+k∈{2,3,5,6,7,10,12}.
+
+Sparse divisor deconvolution: 
+min
+⁡
+𝜋
+≥
+0
+∥
+𝐷
+𝜋
+−
+𝜇
+^
+∥
+2
+2
++
+𝜆
+∥
+𝜋
+∥
+1
+min 
+π≥0
+​
+ ∥Dπ− 
+μ
+^
+​
+ ∥ 
+2
+2
+​
+ +λ∥π∥ 
+1
+​
+  (λ=1e-3) on the divisor lattice.
+
+Composite-first MDL test: compare 
+{
+𝑞
+}
+{q} vs 
+{
+𝑑
+𝑖
+𝑣
+𝑖
+𝑠
+𝑜
+𝑟
+𝑠
+}
+{divisors} vs Null on held-out probes; require one winner.
+
+Phase-coherence check: phases for divisors must lock to composite; else allow primes as independent rhythms.
+
+Detune verification: shadow “damp every 
+𝑝
+pth tick” runs; prefer hypothesis with largest hurt gap.
+
+Materialisation: if period 
+𝑞
+q accepted, add a light macro-anchor 
+𝑀
+𝑞
+M 
+q
+​
+  connected to implicated subgraph. Blacklist its prime divisors in that namespace for 10k steps unless independence proven.
+
+7) Semantics inside W (no bolt-ons)
+Concept vertices: small global pool (default ≤64) for abstract predicates (Fruit, Red, Company, Edible, …).
+
+Operator vertices: minimal set (Hypernym, Hyponym, Pluralize, ColorOf, PartOf, …).
+
+Grounding rule: any external cue (co-activation, image signal, dictionary/LLM suggestion) may propose token → SEM → concept, but acceptance depends only on probe improvements + physics gates; no parallel memory retained.
+
+Concept-chord acceptance: average normalized energy on intended targets must ↑ ≥ 0.02 with no drop on ≥⅔ chords; temporal probes must stay within tolerance.
+
+Polysemy: if probe signatures for token split (silhouette ≥ 0.25), propose sense nodes 
+𝑥
+(
+1
+)
+,
+𝑥
+(
+2
+)
+x 
+(1)
+ ,x 
+(2)
+  and context routing; accept if signature margin ↑ ≥ 0.1 and gates pass.
+
+Hubs & long wires: allow concept hubs 
+𝐻
+𝐶
+H 
+C
+​
+  or low-rank nudges for long-range semantic recall, under the same gate and spectral projection.
+
+8) Data & I/O contracts (minimal)
+Events stream: seq_id, step, token, namespace, weight, split.
+(Optional modality tags for co-activity proposals; once edges are proposed, only 
+𝑊
+W persists them.)
+
+No separate semantic table: any seed concept list is for proposals only; after acceptance, concept vertices/edges live in 
+𝑊
+W.
+
+Checkpoints: save 
+𝑊
+W (sparse 
+𝑆
+S + low-rank 
+𝑈
+,
+𝑉
+U,V), vertex registry, budgets, and edit witness logs (which probes improved, deltas). No other state.
+
+9) Metrics & dashboards (readouts, not losses)
+Physics: spectral radius, 
+∣
+𝐸
+∣
+,
+∣
+𝑉
+∣
+∣E∣,∣V∣, row cap violations (should be 0), probe-MSE/KL curves.
+
+Resonance: 
+𝜇
+^
+𝑘
+μ
+^
+​
+  
+k
+​
+ , selected 
+𝜋
+^
+𝑞
+π
+^
+  
+q
+​
+ , detune hurt gaps; subgraph Lanczos mode mass.
+
+Semantics: concept-chord scores, invariance scores 
+𝐼
+(
+𝑥
+,
+𝑃
+𝑘
+)
+=
+min
+⁡
+𝑗
+∈
+𝐽
+𝑘
+I(x,P 
+k
+​
+ )=min 
+j∈J 
+k
+​
+ 
+​
+  energy
+(
+𝑃
+𝑘
+∣
+𝑈
+𝑗
+(
+𝑥
+)
+)
+(P 
+k
+​
+ ∣U 
+j
+​
+ (x)), sense separation margins.
+
+Territories: per-type utilities 
+𝑈
+𝜏
+U 
+τ
+​
+ , improvements 
+𝐽
+𝜏
+J 
+τ
+​
+ , current 
+𝑘
+𝜏
+k 
+τ
+​
+  splits.
+
+10) Phased plan (ocean-capable POC)
+Phase-0 (skeleton):
+Implement 
+𝑊
+W core (S+UVᵀ), probes, edit loop, spectral projection, budgets, delay nodes. Validate on synthetic periodic/aperiodic streams. Exit when edits consistently pass gates with no collapses.
+
+Phase-1 (resonance/macros):
+Add 
+𝐵
+(
+𝑊
+)
+B(W)+Hutch++, sparse deconvolution, composite-first MDL, phase-coherence, detune. Materialise 
+𝑀
+𝑞
+M 
+q
+​
+  anchors and blacklist divisors appropriately.
+
+Phase-2 (higher-order + semantics):
+Promote context nodes, enable phase motifs, introduce concept vertices and semantic chords, allow hubs/low-rank “long wires,” polysemy splits. Maintain interference guards and territory fairness.
+
+11) Defaults to pin (implementation constants)
+𝜌
+\*
+=
+0.98
+ρ 
+\*
+ =0.98, 
+𝛿
+=
+0.02
+δ=0.02, 
+𝑘
+row
+=
+32
+k 
+row
+​
+ =32, 
+∣
+𝐸
+∣
+≤
+20
+∣
+𝑉
+∣
+∣E∣≤20∣V∣, 
+𝑟
+=
+8
+r=8, 
+𝐾
+=
+8
+K=8 delay nodes.
+
+Probe pool 
+=
+256
+=256, horizon 
+𝑇
+=
+16
+T=16; cadence: evaluate at every shadow run.
+
+Hutch++ cadence 500 steps, 
+𝑚
+=
+8
+m=8 vectors, 
+𝑘
+∈
+{
+2
+,
+3
+,
+5
+,
+6
+,
+7
+,
+10
+,
+12
+}
+k∈{2,3,5,6,7,10,12}, λ=1e-3.
+
+Edit cadence ≤1/500 steps; proposal size ≤12 edges or 1 node + ≤12 edges; retry ×2 on backoff.
+
+Acceptance thresholds: MSE ↓ ≥5% (≥⅔ probes), mean KL ≤2e-3; semantic chord ↑ ≥0.02; temporal-semantic interference tolerance ±1% on ≤1/3 probes.
+
+Territory split: start 
+𝑘
+TEMP
+=
+24
+k 
+TEMP
+​
+ =24, 
+𝑘
+SEM
+=
+8
+k 
+SEM
+​
+ =8; adapt via multiplicative-weights at prune.
+
+12) Invariants and kill-switches
+Hard invariants: no NaNs; off-diagonal weights 
+≥
+0
+≥0; row 
+ℓ
+1
+≤
+1
+ℓ 
+1
+​
+ ≤1 pre-damping; 
+𝜌
+(
+𝑊
+)
+≤
+1
+ρ(W)≤1 after projection; 
+∣
+𝐸
+∣
+≤
+20
+∣
+𝑉
+∣
+∣E∣≤20∣V∣.
+
+Kill-switch: if two successive accepted edits require >1.1× spectral scaling or violate interference tolerance, freeze structural edits for 5k steps and alert.
+
+13) Open choices to confirm (before coding)
+Global vs per-namespace special nodes: default global with namespace-specific edges.
+
+Sense split policy: maximum senses per token (default 2).
+
+Concept pool: initial list and cap (default ≤64).
+
+Operator vertices: minimal set to include at Phase-2.
+
+Probe monitored node set: which tokens + all special nodes; size cap (e.g., 512).
+
+14) What this answers (and what it doesn’t)
+Answers: harmonic interference (non-backtracking + deconv + detune), semantic abyss (concept vertices + probes), module drift (typed paths within 
+𝑊
+W), resource starvation (dynamic per-row split), collapse (gated edits + spectral safety).
+
+Doesn’t: conjure semantics without grounding; guarantee human-level abstraction—only that any new capability must be realised as structure in 
+𝑊
+W and justified by probe behaviour.
+
+
+
+----initial:----
+
+
 # UPCA3
 Its About Time!
 A time-first, resonance-driven UPCA (mathematical spec)
